@@ -19,7 +19,7 @@ export const AboutPage: React.FC = () => {
       <div className="text-center space-y-3">
         <div className="flex justify-center mb-1">
           <img
-            src="/assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png"
+            src={`${import.meta.env.BASE_URL}assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png`}
             alt="FixMyRAK Logo"
             className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-3xl shadow-sm bg-white p-2 border border-[#e4e9e1]"
           />

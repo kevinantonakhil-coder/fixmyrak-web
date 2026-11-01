@@ -20,8 +20,9 @@ import {
   Info,
   Globe,
   FileText,
-  Download,
 } from 'lucide-react';
+
+const logoSrc = `${import.meta.env.BASE_URL}assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png`;
 
 interface NavbarProps {
   currentTab: string;
@@ -91,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
           >
             <img
-              src="/assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png"
+              src={logoSrc}
               alt="FixMyRAK Logo"
               className="h-12 w-12 object-contain rounded-xl group-hover:scale-105 transition-transform drop-shadow-xs bg-white p-0.5 border border-[#e4e9e1]"
             />
@@ -140,18 +141,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action Buttons, Language & Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Download Codebase Button */}
-            <a
-              href="/FixMyRAK_SourceCode.zip"
-              download="FixMyRAK_SourceCode.zip"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#c8dac5] bg-[#eaf1e9] hover:bg-[#dce9da] text-xs font-bold text-[#143d35] transition-all cursor-pointer shadow-2xs group"
-              title="Download entire codebase as a single .ZIP file"
-            >
-              <Download className="w-3.5 h-3.5 text-[#143d35] group-hover:translate-y-0.5 transition-transform" />
-              <span className="hidden md:inline">Download Code (.zip)</span>
-              <span className="md:hidden">.ZIP</span>
-            </a>
-
             {/* Language Switcher Toggle */}
             <button
               onClick={toggleLanguage}
@@ -383,7 +372,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#e4e9e1]">
             <div className="flex items-center gap-2">
               <img
-                src="/assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png"
+                src={logoSrc}
                 alt="FixMyRAK"
                 className="w-8 h-8 object-contain rounded-lg bg-white p-0.5 border border-[#e4e9e1]"
               />
@@ -419,15 +408,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
           ))}
-
-          <a
-            href="/FixMyRAK_SourceCode.zip"
-            download="FixMyRAK_SourceCode.zip"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-[#143d35] bg-[#eaf1e9] hover:bg-[#dce9da] border border-[#c8dac5] cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-[#143d35]" />
-            <span>Download All Code Files (.ZIP)</span>
-          </a>
 
           <button
             onClick={() => {

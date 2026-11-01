@@ -87,7 +87,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
           <div className="flex justify-center mb-2.5">
             <img
-              src="/assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png"
+              src={`${import.meta.env.BASE_URL}assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png`}
               alt="FixMyRAK Logo"
               className="w-14 h-14 object-contain rounded-2xl shadow-md bg-white p-1"
             />

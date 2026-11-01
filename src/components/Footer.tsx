@@ -17,7 +17,7 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
               onClick={() => setCurrentTab('home')}
             >
               <img
-                src="/assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png"
+                src={`${import.meta.env.BASE_URL}assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png`}
                 alt="FixMyRAK Logo"
                 className="w-12 h-12 object-contain rounded-xl bg-white border border-[#e4e9e1] p-1 shadow-xs group-hover:scale-105 transition-transform"
               />
