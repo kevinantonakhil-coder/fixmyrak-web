@@ -132,7 +132,7 @@ export const Footer: React.FC<FooterProps> = ({ setCurrentTab }) => {
         {/* Bottom row */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#89958d] gap-3">
           <p>
-            Photo: Jebel Jais Mountain Ranges via Wikimedia (CC0) &bull; &copy; {new Date().getFullYear()} FixMyRAK
+            Photo: <a href="https://commons.wikimedia.org/wiki/File:Beach_Sunset_at_RAK.jpg" target="_blank" rel="noreferrer" className="hover:text-[#143d35] underline">Beach Sunset at RAK</a> by SumanGNepal via Wikimedia Commons, CC BY-SA 4.0 &bull; &copy; {new Date().getFullYear()} FixMyRAK
           </p>
           <div className="flex items-center gap-3">
             <button

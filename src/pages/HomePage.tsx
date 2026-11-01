@@ -190,12 +190,12 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Hero Visual with Jebel Jais Photo & Sticker */}
+          {/* Right Column: Hero Visual with RAK sunset photo & Sticker */}
           <div className="lg:col-span-6 relative">
             <div className="relative rounded-[24px] overflow-hidden shadow-xl border border-[#e4e9e1] aspect-[4/3] bg-[#e8f1e9]">
               <img
-                src="/assets/jebel-jais.jpg"
-                alt="Jebel Jais Mountain Range in Ras Al Khaimah"
+                src={`${import.meta.env.BASE_URL}assets/rak-beach-sunset.jpg`}
+                alt="A fishing boat on the Arabian Gulf at sunset in Ras Al Khaimah"
                 className="w-full h-full object-cover"
               />
 
@@ -210,7 +210,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   </div>
                   <div>
                     <strong className="block text-xs font-bold font-manrope">
-                      Jebel Jais, Ras Al Khaimah
+                      Ras Al Khaimah at sunset
                     </strong>
                     <small className="text-[10px] text-white/80 block">
                       United Arab Emirates
