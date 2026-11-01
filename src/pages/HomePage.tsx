@@ -141,7 +141,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 
             {/* Description */}
             <p className="text-sm sm:text-base text-[#738078] leading-relaxed max-w-lg">
-              A simple, community-powered way to notice, report, and follow local issues around Ras Al Khaimah — from potholes and dark streets to cleaner public spaces.
+              A simple, community-powered way to improve Ras Al Khaimah — from safer streets and cleaner public spaces to eco-friendly choices that protect local wildlife and habitats.
             </p>
 
             {/* Actions */}
