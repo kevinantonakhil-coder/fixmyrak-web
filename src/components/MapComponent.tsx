@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import L, { type Map as LeafletMap } from 'leaflet';
 import { Report, ReportCategory, ReportStatus, RAK_PRESET_LOCATIONS } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { loadGoogleMaps, isGoogleMapsAuthFailed } from '../utils/googleMapsLoader';
+import { LeafletMapFallback } from './LeafletMapFallback';
 import firebaseConfig from '../../firebase-applet-config.json';
 import {
   MapPin,
@@ -59,13 +61,16 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapFrameRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const leafletMapInstanceRef = useRef<LeafletMap | null>(null);
   const markersRef = useRef<any[]>([]);
   const pickerMarkerRef = useRef<any>(null);
   const activeInfoWindowRef = useRef<any>(null);
   const accuracyCircleRef = useRef<any>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [usingFallbackMap, setUsingFallbackMap] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mapTypeId, setMapTypeId] = useState<'roadmap' | 'satellite' | 'terrain'>('roadmap');
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -87,11 +92,28 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     if (!mapContainerRef.current) return;
 
     setIsLoading(true);
+    setUsingFallbackMap(false);
     setLoadError(null);
+
+    const showFallbackMap = (message: string) => {
+      if (isCancelled) return;
+      mapInstanceRef.current = null;
+      setIsLoading(false);
+      setUsingFallbackMap(true);
+      setLoadError(message);
+    };
+    const handleGoogleMapsAuthFailure = () => {
+      showFallbackMap('Google Maps could not authenticate its key. Showing the OpenStreetMap view instead.');
+    };
+
+    window.addEventListener('google-maps-auth-failure', handleGoogleMapsAuthFailure);
+    if (isGoogleMapsAuthFailed()) {
+      handleGoogleMapsAuthFailure();
+    }
 
     loadGoogleMaps(mapsApiKey)
       .then((googleMaps) => {
-        if (isCancelled || !mapContainerRef.current) return;
+        if (isCancelled || isGoogleMapsAuthFailed() || !mapContainerRef.current) return;
 
         const initialLat = isPickerMode ? pickerLat : 25.7895;
         const initialLng = isPickerMode ? pickerLng : 55.9432;
@@ -171,15 +193,13 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       .catch((err) => {
         if (!isCancelled) {
           console.warn('Google Maps loading notice:', err);
-          setIsLoading(false);
-          setLoadError(
-            'Google Maps Platform requires an active Maps JavaScript API key. You can add or update your key in the settings above.'
-          );
+          showFallbackMap('Google Maps is unavailable. Showing the OpenStreetMap view instead.');
         }
       });
 
     return () => {
       isCancelled = true;
+      window.removeEventListener('google-maps-auth-failure', handleGoogleMapsAuthFailure);
     };
   }, [mapsApiKey, isPickerMode]);
 
@@ -341,13 +361,17 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
   // Center on Selected Report
   useEffect(() => {
-    if (selectedReport && mapInstanceRef.current && !isPickerMode) {
+    if (selectedReport && !isPickerMode) {
       if (selectedReport.latitude && selectedReport.longitude) {
-        mapInstanceRef.current.panTo({
-          lat: selectedReport.latitude,
-          lng: selectedReport.longitude,
-        });
-        mapInstanceRef.current.setZoom(15);
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.panTo({
+            lat: selectedReport.latitude,
+            lng: selectedReport.longitude,
+          });
+          mapInstanceRef.current.setZoom(15);
+        } else {
+          leafletMapInstanceRef.current?.setView([selectedReport.latitude, selectedReport.longitude], 15);
+        }
       }
     }
   }, [selectedReport]);
@@ -356,6 +380,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     if (mapInstanceRef.current) {
       mapInstanceRef.current.panTo({ lat: 25.7895, lng: 55.9432 });
       mapInstanceRef.current.setZoom(11);
+    } else {
+      leafletMapInstanceRef.current?.setView([25.7895, 55.9432], 11);
     }
   };
 
@@ -363,6 +389,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     if (mapInstanceRef.current) {
       mapInstanceRef.current.panTo({ lat, lng });
       mapInstanceRef.current.setZoom(zoom);
+    } else {
+      leafletMapInstanceRef.current?.setView([lat, lng], zoom);
     }
   };
 
@@ -397,6 +425,16 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             strokeWeight: 2,
           });
           accuracyCircleRef.current = circle;
+        } else if (leafletMapInstanceRef.current) {
+          leafletMapInstanceRef.current.setView([latitude, longitude], 15);
+          accuracyCircleRef.current?.remove();
+          accuracyCircleRef.current = L.circle([latitude, longitude], {
+            radius: Math.max(accuracy || 50, 40),
+            color: '#0284c7',
+            fillColor: '#0284c7',
+            fillOpacity: 0.15,
+            weight: 2,
+          }).addTo(leafletMapInstanceRef.current);
         }
 
         if (isPickerMode && onPickerLocationChange) {
@@ -413,9 +451,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   };
 
   const handleToggleFullscreen = () => {
-    if (!mapContainerRef.current) return;
+    if (!mapFrameRef.current) return;
     if (!document.fullscreenElement) {
-      mapContainerRef.current.parentElement?.requestFullscreen().catch((err) => {
+      mapFrameRef.current.requestFullscreen().catch((err) => {
         console.warn('Fullscreen request error:', err);
       });
       setIsFullscreen(true);
@@ -437,13 +475,27 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   };
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden border border-[#e4e9e1] shadow-xs bg-slate-50 group/map">
+    <div ref={mapFrameRef} className="relative w-full rounded-2xl overflow-hidden border border-[#e4e9e1] shadow-xs bg-slate-50 group/map">
       {/* Map Canvas */}
       <div
-        ref={mapContainerRef}
         style={{ height: isFullscreen ? '100vh' : height }}
-        className="w-full z-0 bg-slate-100"
-      />
+        className="relative w-full z-0 bg-slate-100"
+      >
+        {usingFallbackMap ? (
+          <LeafletMapFallback
+            reports={filteredMapReports}
+            selectedReport={selectedReport}
+            onSelectReport={onSelectReport}
+            isPickerMode={isPickerMode}
+            pickerLat={pickerLat}
+            pickerLng={pickerLng}
+            onPickerLocationChange={onPickerLocationChange}
+            mapRef={leafletMapInstanceRef}
+          />
+        ) : (
+          <div ref={mapContainerRef} className="w-full h-full bg-slate-100" />
+        )}
+      </div>
 
       {/* Loading state indicator */}
       {isLoading && (
@@ -500,7 +552,12 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             <span>{isLocating ? 'Locating...' : t('map.myLocation')}</span>
           </button>
 
-          {/* Google Maps Type Selector: Roadmap / Satellite / Terrain */}
+          {usingFallbackMap ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#e4e9e1] bg-white/95 text-[11px] font-bold text-[#143d35] shadow-sm">
+              <MapIcon className="w-3.5 h-3.5" /> OpenStreetMap
+            </span>
+          ) : (
+          /* Google Maps Type Selector: Roadmap / Satellite / Terrain */
           <div className="inline-flex p-0.5 bg-white/95 backdrop-blur-md rounded-xl border border-[#e4e9e1] shadow-sm text-xs">
             <button
               type="button"
@@ -536,6 +593,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
               <span className="hidden sm:inline">Terrain</span>
             </button>
           </div>
+          )}
 
           <button
             type="button"
@@ -653,6 +711,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
                   if (mapInstanceRef.current) {
                     mapInstanceRef.current.panTo({ lat: preset.lat, lng: preset.lng });
                     mapInstanceRef.current.setZoom(14);
+                  } else {
+                    leafletMapInstanceRef.current?.setView([preset.lat, preset.lng], 14);
                   }
                 }}
                 className="whitespace-nowrap px-3 py-1 text-xs bg-[#f6f7f3] hover:bg-[#e8f1e9] hover:text-[#143d35] text-[#1c302c] rounded-xl font-semibold border border-[#e4e9e1] transition-colors shrink-0 cursor-pointer"

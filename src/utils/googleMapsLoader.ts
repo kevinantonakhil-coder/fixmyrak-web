@@ -28,6 +28,7 @@ export function loadGoogleMaps(apiKey: string): Promise<any> {
   // Set up global auth failure handler if Maps API fails authentication
   window.gm_authFailure = () => {
     authFailed = true;
+    window.dispatchEvent(new Event('google-maps-auth-failure'));
     console.warn('Google Maps authentication notice: Key requires Maps JavaScript API to be enabled.');
   };
 
