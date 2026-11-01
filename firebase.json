@@ -1,0 +1,8 @@
+{
+  "firestore": {
+    "databaseId": "ai-studio-fixmyrak-8970734b-ae12-4b60-947f-c731f1bfb7cd",
+    "rules": "firestore.rules",
+    "edition": "ENTERPRISE",
+    "dataAccessMode": "FIRESTORE_NATIVE"
+  }
+}

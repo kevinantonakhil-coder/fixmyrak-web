@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --page: #f6f7f3;
+  --surface: #ffffff;
+  --ink: #1c302c;
+  --muted: #74817b;
+  --line: #e4e9e1;
+  --green: #143d35;
+  --green-hover: #205347;
+  --green-soft: #e8f1e9;
+  --lime: #d7edbd;
+  --orange: #e97950;
+  --shadow: 0 16px 46px rgba(32, 54, 43, 0.08);
+  --radius: 22px;
+}
+
+@layer base {
+  body {
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background-color: var(--page);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom leaflet marker styling matching FixMyRAK palette */
+.custom-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  box-shadow: 0 4px 12px rgba(20, 61, 53, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.custom-pin:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 16px rgba(20, 61, 53, 0.35);
+}
+
+.custom-pin-pulse {
+  animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(20, 61, 53, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(20, 61, 53, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(20, 61, 53, 0);
+  }
+}
+
+.font-manrope {
+  font-family: 'Manrope', sans-serif;
+}
