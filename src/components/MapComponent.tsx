@@ -508,25 +508,6 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         </div>
       )}
 
-      {/* Load error banner */}
-      {loadError && !isLoading && (
-        <div className="absolute top-16 left-4 right-4 z-20 p-3 bg-amber-50/95 border border-amber-300 rounded-xl text-amber-900 text-xs shadow-md flex items-start justify-between gap-3 backdrop-blur-xs">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">Google Maps Platform Notice</p>
-              <p className="text-[11px] mt-0.5">{loadError}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowKeyModal(true)}
-            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[11px] shrink-0 cursor-pointer"
-          >
-            Configure Key
-          </button>
-        </div>
-      )}
-
       {/* Top Floating Controls Bar */}
       <div className="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         {/* Left Tools: Reset, My Location, Map Type Switches */}
