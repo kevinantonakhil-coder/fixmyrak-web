@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Search,
+  X,
 } from 'lucide-react';
 
 interface MapPageProps {

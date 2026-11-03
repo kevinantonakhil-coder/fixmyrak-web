@@ -170,7 +170,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       setAiSummaries((prev) => ({ ...prev, [report.id]: summary }));
     } catch (err) {
       console.error('AI summary error:', err);
-      alert('Failed to generate AI executive summary.');
+      const detail = err instanceof Error ? err.message : 'Please try again.';
+      alert(`Failed to generate AI executive summary.\n\n${detail}`);
     } finally {
       setLoadingAiId(null);
     }

@@ -7,10 +7,13 @@ import {
   Report,
 } from '../types';
 
+const aiApiBaseUrl = (import.meta.env.VITE_AI_API_BASE_URL || '').replace(/\/+$/, '');
+const aiApiUrl = (path: string) => `${aiApiBaseUrl}${path}`;
+
 export const aiService = {
   // 1. Intelligent Issue Categorization & Title Suggestion
   async categorizeIssue(description: string): Promise<AICategorizeResult> {
-    const res = await fetch('/api/ai/categorize', {
+    const res = await fetch(aiApiUrl('/api/ai/categorize'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ description }),
@@ -26,7 +29,7 @@ export const aiService = {
 
   // 2. AI Description Enhancement
   async enhanceDescription(description: string, location?: string): Promise<AIEnhanceResult> {
-    const res = await fetch('/api/ai/enhance', {
+    const res = await fetch(aiApiUrl('/api/ai/enhance'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ description, location }),
@@ -56,7 +59,7 @@ export const aiService = {
       description: r.description.slice(0, 180),
     }));
 
-    const res = await fetch('/api/ai/check-duplicates', {
+    const res = await fetch(aiApiUrl('/api/ai/check-duplicates'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -78,7 +81,7 @@ export const aiService = {
 
   // 4. Admin Report Summarization
   async summarizeReport(report: Report): Promise<AISummarizeResult> {
-    const res = await fetch('/api/ai/summarize', {
+    const res = await fetch(aiApiUrl('/api/ai/summarize'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -101,7 +104,7 @@ export const aiService = {
 
   // 5. Intelligent Report Translation (English <-> Arabic)
   async translateText(text: string, targetLang: 'ar' | 'en'): Promise<string> {
-    const res = await fetch('/api/ai/translate', {
+    const res = await fetch(aiApiUrl('/api/ai/translate'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, targetLang }),
@@ -122,7 +125,7 @@ export const aiService = {
     latitude?: number;
     longitude?: number;
   }): Promise<AIMapsGroundingResult> {
-    const res = await fetch('/api/ai/maps-grounding', {
+    const res = await fetch(aiApiUrl('/api/ai/maps-grounding'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
