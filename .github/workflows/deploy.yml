@@ -33,6 +33,8 @@ jobs:
         run: bun install
 
       - name: Build Vite application
+        env:
+          VITE_AI_API_BASE_URL: https://fixmyrak-ai.onrender.com
         run: bun run build
 
       - name: Setup Pages

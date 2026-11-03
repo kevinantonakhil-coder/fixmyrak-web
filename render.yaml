@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: fixmyrak-ai
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: AI_ALLOWED_ORIGINS
+        value: https://kevinantonakhil-coder.github.io
