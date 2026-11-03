@@ -3,8 +3,8 @@ services:
     name: fixmyrak-ai
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: bun install && bun run build
+    startCommand: bun run start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
