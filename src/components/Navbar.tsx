@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 const logoSrc = `${import.meta.env.BASE_URL}assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png`;
+const wordmarkSrc = `${import.meta.env.BASE_URL}assets/fixmyrak-wordmark.png`;
 
 interface NavbarProps {
   currentTab: string;
@@ -98,8 +99,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             />
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xl font-extrabold tracking-tight text-[#143d35] font-manrope">
-                  FixMy<span className="text-[#e97950]">RAK</span>
+                <span className="relative block h-[50px] w-[140px] shrink-0 overflow-hidden" role="img" aria-label="FixMyRAK">
+                  <img
+                    src={wordmarkSrc}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute max-w-none"
+                    style={{ width: '195px', left: '-25.7px', top: '-49.7px' }}
+                  />
                 </span>
                 <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[#e8f1e9] text-[#143d35] border border-[#143d35]/15 rounded-md">
                   {t('brand.badge')}
