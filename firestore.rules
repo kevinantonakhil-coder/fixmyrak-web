@@ -71,14 +71,32 @@ service cloud.firestore {
         (!('adminName' in data) || (data.adminName is string && data.adminName.size() <= 100));
     }
 
-    function isValidNotification(data) {
-      return data.keys().hasAll(['userId', 'title', 'message', 'read', 'createdAt']) &&
+    function isValidNotification(data, notificationId) {
+      return data.keys().hasAll(['id', 'userId', 'reportId', 'title', 'message', 'read', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'userId', 'reportId', 'updateId', 'title', 'message', 'read', 'createdAt']) &&
+        data.id == notificationId &&
         data.userId is string && data.userId.size() <= 128 &&
+        data.reportId is string && data.reportId.size() <= 128 &&
         data.title is string && data.title.size() <= 150 &&
         data.message is string && data.message.size() <= 500 &&
-        data.read is bool &&
-        (!('reportId' in data) || (data.reportId is string && data.reportId.size() <= 128)) &&
-        (!('notificationId' in data) || (data.notificationId is string && data.notificationId.size() <= 128));
+        data.read == false && data.createdAt is string && data.createdAt.size() <= 40 &&
+        (!('updateId' in data) || (data.updateId is string && data.updateId.size() <= 128));
+    }
+
+    function isOwnReportNotification(data) {
+      return exists(/databases/$(database)/documents/reports/$(data.reportId)) &&
+        get(/databases/$(database)/documents/reports/$(data.reportId)).data.userId == data.userId;
+    }
+
+    function isLegitimateReportUpdateNotification(data) {
+      return isAdmin() && 'updateId' in data &&
+        exists(/databases/$(database)/documents/reports/$(data.reportId)/updates/$(data.updateId)) &&
+        get(/databases/$(database)/documents/reports/$(data.reportId)/updates/$(data.updateId)).data.reportId == data.reportId &&
+        get(/databases/$(database)/documents/reports/$(data.reportId)/updates/$(data.updateId)).data.adminId == request.auth.uid &&
+        data.title == 'Report Status Updated: ' +
+          get(/databases/$(database)/documents/reports/$(data.reportId)/updates/$(data.updateId)).data.newStatus &&
+        get(/databases/$(database)/documents/reports/$(data.reportId)).data.status ==
+          get(/databases/$(database)/documents/reports/$(data.reportId)/updates/$(data.updateId)).data.newStatus;
     }
 
     function isValidFeedback(data) {
@@ -120,14 +138,24 @@ service cloud.firestore {
       // Subcollection: Updates
       match /updates/{updateId} {
         allow read: if true;
-        allow create, update, delete: if isAdmin() && isValidReportUpdate(incoming());
+        allow create: if isAdmin() && isValidReportUpdate(incoming()) &&
+          incoming().reportId == reportId && incoming().adminId == request.auth.uid &&
+          incoming().id == updateId;
+        allow update: if isAdmin() && isValidReportUpdate(incoming()) && incoming().reportId == reportId;
+        allow delete: if isAdmin();
       }
     }
 
     // Notifications
     match /notifications/{notificationId} {
       allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidNotification(incoming());
+      allow create: if isValidNotification(incoming(), notificationId) && isOwnReportNotification(incoming()) && (
+        (isOwner(incoming().userId) && incoming().userId == request.auth.uid &&
+          !('updateId' in incoming()) && incoming().title == 'Report Submitted Successfully' &&
+          get(/databases/$(database)/documents/reports/$(incoming().reportId)).data.status == 'Submitted') ||
+        (incoming().title.matches('^Report Status Updated: (Submitted|Under Review|In Progress|Resolved)$') &&
+          isLegitimateReportUpdateNotification(incoming()))
+      );
       allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['read']);
       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
     }

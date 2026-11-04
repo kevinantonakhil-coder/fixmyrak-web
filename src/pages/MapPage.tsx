@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { Report, ReportCategory, ReportStatus, RAK_PRESET_LOCATIONS, AIMapsGroundingResult } from '../types';
 import { MapComponent } from '../components/MapComponent';
+import { SmartHeatmap } from '../components/SmartHeatmap';
 import { useLanguage } from '../context/LanguageContext';
 import { aiService } from '../services/aiService';
 import {
   MapPin,
+  Flame,
   Filter,
   Layers,
   ChevronRight,
@@ -44,6 +46,7 @@ export const MapPage: React.FC<MapPageProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<ReportCategory | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<ReportStatus | 'all'>('all');
   const [activeReport, setActiveReport] = useState<Report | null>(null);
+  const [mapView, setMapView] = useState<'reports' | 'heatmap'>('reports');
 
   // AI Maps Grounding State
   const [sidebarTab, setSidebarTab] = useState<'details' | 'ai'>('details');
@@ -179,6 +182,23 @@ export const MapPage: React.FC<MapPageProps> = ({
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#e4e9e1] bg-white p-3 shadow-xs">
+        <div>
+          <p className="text-xs font-bold text-[#143d35]">Map view</p>
+          <p className="text-[11px] text-[#74817b]">Switch between individual reports and report concentration.</p>
+        </div>
+        <div className="flex items-center gap-1 rounded-xl bg-[#f1f4ef] p-1">
+          <button type="button" onClick={() => setMapView('reports')} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${mapView === 'reports' ? 'bg-[#143d35] text-white shadow-xs' : 'text-[#74817b] hover:text-[#143d35]'}`}>
+            <MapPin className="h-3.5 w-3.5" /> Reports
+          </button>
+          <button type="button" onClick={() => setMapView('heatmap')} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${mapView === 'heatmap' ? 'bg-[#143d35] text-white shadow-xs' : 'text-[#74817b] hover:text-[#143d35]'}`}>
+            <Flame className="h-3.5 w-3.5" /> Smart Heatmap
+          </button>
+        </div>
+      </div>
+
+      {mapView === 'reports' ? (
+      <>
       {/* Filter Row */}
       <div className="bg-white p-4 rounded-2xl border border-[#e4e9e1] shadow-xs flex flex-wrap items-center justify-between gap-4">
         {/* Category Filter */}
@@ -548,6 +568,10 @@ export const MapPage: React.FC<MapPageProps> = ({
           </div>
         </div>
       </div>
+      </>
+      ) : (
+        <SmartHeatmap reports={reports} onOpenReport={onSelectReport} />
+      )}
     </div>
   );
 };

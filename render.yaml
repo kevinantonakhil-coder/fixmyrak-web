@@ -13,3 +13,7 @@ services:
         sync: false
       - key: AI_ALLOWED_ORIGINS
         value: https://kevinantonakhil-coder.github.io
+      - key: FIREBASE_PROJECT_ID
+        value: boxwood-badge-39pl1
+      - key: FIREBASE_DATABASE_ID
+        value: ai-studio-fixmyrak-8970734b-ae12-4b60-947f-c731f1bfb7cd

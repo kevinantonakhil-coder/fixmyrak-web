@@ -5,12 +5,27 @@ import {
   AISummarizeResult,
   AIMapsGroundingResult,
   Report,
+  CommunityAnalytics,
+  AICommunityInsightsResult,
 } from '../types';
 
 const aiApiBaseUrl = (import.meta.env.VITE_AI_API_BASE_URL || '').replace(/\/+$/, '');
 const aiApiUrl = (path: string) => `${aiApiBaseUrl}${path}`;
 
 export const aiService = {
+  async getCommunityInsights(analytics: CommunityAnalytics, idToken: string): Promise<AICommunityInsightsResult> {
+    const res = await fetch(aiApiUrl('/api/ai/community-insights'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ analytics }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Could not generate community insights');
+    }
+    return res.json();
+  },
+
   // 1. Intelligent Issue Categorization & Title Suggestion
   async categorizeIssue(description: string): Promise<AICategorizeResult> {
     const res = await fetch(aiApiUrl('/api/ai/categorize'), {

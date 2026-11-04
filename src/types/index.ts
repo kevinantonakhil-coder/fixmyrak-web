@@ -46,11 +46,39 @@ export interface ReportUpdate {
 export interface UserNotification {
   id: string;
   userId: string;
-  reportId?: string;
+  reportId: string;
+  updateId?: string;
   title: string;
   message: string;
   read: boolean;
   createdAt: string;
+}
+
+export interface CommunityAnalytics {
+  totalReports: number;
+  geocodedReports: number;
+  categoryCounts: { label: string; count: number }[];
+  statusCounts: { label: string; count: number }[];
+  areaCounts: { label: string; count: number }[];
+  weeklyCounts: { weekStart: string; count: number }[];
+  recentPeriod: { start: string; end: string; count: number };
+  previousPeriod: { start: string; end: string; count: number };
+  periodChangePercent: number | null;
+  reportsWithValidDates: number;
+}
+
+export interface AICommunityInsight {
+  heading: string;
+  explanation: string;
+  period: string;
+  reportCount: number;
+  kind: 'summary' | 'pattern' | 'area' | 'activity' | 'emerging';
+}
+
+export interface AICommunityInsightsResult {
+  insights: AICommunityInsight[];
+  generatedAt: string;
+  reportsAnalyzed: number;
 }
 
 export interface UserFeedback {

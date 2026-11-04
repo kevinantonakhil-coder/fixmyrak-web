@@ -10,6 +10,7 @@ import {
   where,
   orderBy,
   onSnapshot,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import {
@@ -150,6 +151,7 @@ export const reportService = {
         await this.createNotification({
           userId: params.targetUserId,
           reportId: params.reportId,
+          updateId,
           title: `Report Status Updated: ${params.newStatus}`,
           message: params.message
             ? `Update: "${params.message}"`
@@ -240,7 +242,8 @@ export const reportService = {
 
   async createNotification(params: {
     userId: string;
-    reportId?: string;
+    reportId: string;
+    updateId?: string;
     title: string;
     message: string;
   }): Promise<void> {
@@ -248,9 +251,10 @@ export const reportService = {
     const newNotif: UserNotification = {
       id: notifId,
       userId: params.userId,
-      reportId: params.reportId || '',
+      reportId: params.reportId,
+      ...(params.updateId ? { updateId: params.updateId } : {}),
       title: params.title,
-      message: params.message,
+      message: params.message.slice(0, 500),
       read: false,
       createdAt: new Date().toISOString(),
     };
@@ -269,6 +273,17 @@ export const reportService = {
       });
     } catch (err) {
       console.warn('Failed to mark notification read:', err);
+    }
+  },
+
+  async markAllNotificationsAsRead(notificationIds: string[]): Promise<void> {
+    const unreadIds = [...new Set(notificationIds)].filter(Boolean);
+    for (let offset = 0; offset < unreadIds.length; offset += 450) {
+      const batch = writeBatch(db);
+      unreadIds.slice(offset, offset + 450).forEach((notificationId) => {
+        batch.update(doc(db, 'notifications', notificationId), { read: true });
+      });
+      await batch.commit();
     }
   },
 

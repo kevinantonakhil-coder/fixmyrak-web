@@ -20,6 +20,8 @@ import {
   Info,
   Globe,
   FileText,
+  CheckCircle2,
+  CircleDot,
 } from 'lucide-react';
 
 const logoSrc = `${import.meta.env.BASE_URL}assets/aistudio/FixMyRAK_Coastal_Community_Logo_d0e1428a.png`;
@@ -45,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [notificationActionError, setNotificationActionError] = useState('');
 
   // Listen to in-app notifications
   useEffect(() => {
@@ -64,6 +67,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const handleMarkAsRead = async (notifId: string) => {
     await reportService.markNotificationAsRead(notifId);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    setNotificationActionError('');
+    try {
+      await reportService.markAllNotificationsAsRead(
+        notifications.filter((notification) => !notification.read).map((notification) => notification.id)
+      );
+    } catch {
+      setNotificationActionError('Could not mark notifications as read. Please try again.');
+    }
   };
 
   const navLinks = [
@@ -188,16 +202,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 {/* Notifications Drawer */}
                 {notificationsOpen && (
-                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="absolute right-0 mt-2 w-[min(24rem,calc(100vw-2rem))] bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
                       <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                         <Bell className="w-4 h-4 text-emerald-600" />
                         In-App Notifications
                       </h4>
-                      <span className="text-xs text-slate-500">
-                        {unreadCount} unread
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">{unreadCount} unread</span>
+                        {unreadCount > 0 && (
+                          <button onClick={handleMarkAllAsRead} className="text-[10px] font-bold text-emerald-700 hover:underline whitespace-nowrap">
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
                     </div>
+                    {notificationActionError && <p role="alert" className="pt-2 text-[11px] text-red-600">{notificationActionError}</p>}
 
                     <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 my-2">
                       {notifications.length === 0 ? (
@@ -213,9 +233,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <p className="text-xs font-bold text-slate-800">
-                                {notif.title}
-                              </p>
+                              <div className="flex items-start gap-2">
+                                {notif.title.includes('Resolved') ? <CheckCircle2 aria-hidden="true" className="mt-0.5 w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <CircleDot aria-hidden="true" className="mt-0.5 w-3.5 h-3.5 text-[#e97950] shrink-0" />}
+                                <p className="text-xs font-bold text-slate-800">{notif.title}</p>
+                              </div>
                               {!notif.read && (
                                 <button
                                   onClick={() => handleMarkAsRead(notif.id)}

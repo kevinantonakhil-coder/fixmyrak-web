@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Report,
@@ -6,6 +6,7 @@ import {
   ReportStatus,
   UserFeedback,
   AISummarizeResult,
+  AICommunityInsightsResult,
 } from '../types';
 import { reportService } from '../services/reportService';
 import { aiService } from '../services/aiService';
@@ -26,6 +27,7 @@ import {
   Star,
   Check,
 } from 'lucide-react';
+import { calculateCommunityAnalytics, hasSufficientCommunityData } from '../utils/communityAnalytics';
 
 interface AdminDashboardPageProps {
   reports: Report[];
@@ -57,6 +59,9 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   // Feedback list
   const [feedbackList, setFeedbackList] = useState<UserFeedback[]>([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [communityInsights, setCommunityInsights] = useState<AICommunityInsightsResult | null>(null);
+  const [loadingCommunityInsights, setLoadingCommunityInsights] = useState(false);
+  const [communityInsightsError, setCommunityInsightsError] = useState('');
 
   useEffect(() => {
     if (activeTab === 'feedback') {
@@ -123,6 +128,27 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   reports.forEach((r) => {
     categoryCounts[r.category] = (categoryCounts[r.category] || 0) + 1;
   });
+  const communityAnalytics = useMemo(() => calculateCommunityAnalytics(reports), [reports]);
+
+  const handleGenerateCommunityInsights = async () => {
+    if (!user || !hasSufficientCommunityData(communityAnalytics.totalReports)) return;
+    setLoadingCommunityInsights(true);
+    setCommunityInsightsError('');
+    try {
+      const token = await user.getIdToken();
+      setCommunityInsights(await aiService.getCommunityInsights(communityAnalytics, token));
+    } catch (error) {
+      setCommunityInsightsError(error instanceof Error ? error.message : 'Could not load AI insights.');
+    } finally {
+      setLoadingCommunityInsights(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'analytics' && communityAnalytics.totalReports >= 5 && !loadingCommunityInsights) {
+      void handleGenerateCommunityInsights();
+    }
+  }, [activeTab, reports]);
 
   const handleOpenStatusModal = (report: Report) => {
     setEditingReport(report);
@@ -454,7 +480,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {/* TAB 2: Analytics & Trends */}
       {activeTab === 'analytics' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
             <div className="bg-white p-6 rounded-3xl border border-slate-200">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Total Submissions
@@ -462,10 +488,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               <p className="text-3xl font-black text-slate-900 mt-2">{total}</p>
             </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-200">
+              <p className="text-xs font-bold text-[#143d35] uppercase tracking-wider">Most Common</p>
+              <p className="text-sm font-black text-slate-900 mt-2">{communityAnalytics.categoryCounts[0]?.label || 'No reports'}</p>
+              <p className="text-[10px] text-slate-500">{communityAnalytics.categoryCounts[0]?.count || 0} reports</p>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200">
               <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">
                 Submitted
               </p>
               <p className="text-3xl font-black text-amber-900 mt-2">{submittedCount}</p>
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200">
+              <p className="text-xs font-bold text-sky-600 uppercase tracking-wider">Under Review</p>
+              <p className="text-3xl font-black text-sky-900 mt-2">{underReviewCount}</p>
             </div>
             <div className="bg-white p-6 rounded-3xl border border-slate-200">
               <p className="text-xs font-bold text-violet-600 uppercase tracking-wider">
@@ -507,6 +542,47 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               })}
             </div>
           </div>
+
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-4">
+              <h3 className="text-base font-bold text-slate-900">Reports by status</h3>
+              {communityAnalytics.statusCounts.map(({ label, count }) => (
+                <div key={label}>
+                  <div className="flex justify-between text-xs font-semibold text-slate-600"><span>{label}</span><span>{count}</span></div>
+                  <div className="h-2 mt-1 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-[#143d35]" style={{ width: `${total ? (count / total) * 100 : 0}%` }} /></div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-4">
+              <h3 className="text-base font-bold text-slate-900">Reports by area</h3>
+              {communityAnalytics.areaCounts.length ? communityAnalytics.areaCounts.map(({ label, count }) => (
+                <div key={label} className="flex justify-between gap-4 text-xs"><span className="truncate text-slate-600">{label}</span><strong className="text-slate-900">{count}</strong></div>
+              )) : <p className="text-xs text-slate-500">Location descriptions are not available yet.</p>}
+              <p className="text-[11px] text-slate-400">Grouped from submitted location text; {communityAnalytics.geocodedReports} reports have valid map coordinates.</p>
+            </div>
+            <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-slate-200">
+              <h3 className="text-base font-bold text-slate-900">Reports over the last 8 weeks</h3>
+              <div className="mt-4 grid grid-cols-4 sm:grid-cols-8 gap-2 items-end h-36" role="img" aria-label="Weekly community report counts">
+                {communityAnalytics.weeklyCounts.map((week) => {
+                  const max = Math.max(1, ...communityAnalytics.weeklyCounts.map((item) => item.count));
+                  return <div key={week.weekStart} className="h-full flex flex-col justify-end items-center gap-1"><span className="text-[10px] text-slate-500">{week.count}</span><div className="w-full max-w-10 rounded-t-md bg-[#e97950]" style={{ height: `${Math.max(3, (week.count / max) * 88)}%` }} /><span className="text-[9px] text-slate-400">{new Date(`${week.weekStart}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span></div>;
+                })}
+              </div>
+              <p className="mt-3 text-[11px] text-slate-400">30-day frequency: {communityAnalytics.recentPeriod.count} recent vs {communityAnalytics.previousPeriod.count} in the prior 30 days {communityAnalytics.periodChangePercent === null ? '(not enough prior reports to calculate a percentage)' : `(${communityAnalytics.periodChangePercent > 0 ? '+' : ''}${communityAnalytics.periodChangePercent}%)`}.</p>
+            </div>
+          </div>
+
+          <section className="bg-[#143d35] text-white p-6 rounded-3xl space-y-4" aria-labelledby="community-insights-heading">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div><p className="text-[10px] uppercase tracking-widest text-[#d7edbd] font-bold">AI-generated interpretation</p><h3 id="community-insights-heading" className="text-lg font-bold mt-1">Community insights</h3></div>
+              <button onClick={() => void handleGenerateCommunityInsights()} disabled={loadingCommunityInsights || !hasSufficientCommunityData(communityAnalytics.totalReports)} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white text-[#143d35] text-xs font-bold disabled:opacity-50"><Sparkles className="w-4 h-4" />{loadingCommunityInsights ? 'Generating…' : 'Refresh insights'}</button>
+            </div>
+            {!hasSufficientCommunityData(communityAnalytics.totalReports) ? <p className="text-sm text-white/80">At least five real community reports are needed before AI patterns are generated. Current reports: {communityAnalytics.totalReports}.</p>
+              : loadingCommunityInsights && !communityInsights ? <p className="text-sm text-white/80">Analyzing aggregated report statistics…</p>
+              : communityInsightsError ? <div className="text-sm text-white/90"><p>{communityInsightsError}</p><button className="mt-2 underline" onClick={() => void handleGenerateCommunityInsights()}>Try again</button></div>
+              : communityInsights ? <><div className="grid md:grid-cols-2 gap-3">{communityInsights.insights.map((insight, index) => <article key={`${insight.kind}-${index}`} className="bg-white/10 border border-white/10 rounded-2xl p-4"><h4 className="font-bold text-sm">{insight.heading}</h4><p className="text-xs text-white/85 mt-2">{insight.explanation}</p><p className="text-[10px] text-[#d7edbd] mt-3">{insight.period} · {insight.reportCount} reports</p></article>)}</div><p className="text-[10px] text-white/60">Gemini interprets aggregated community submissions. They are not officially verified government data. Generated {new Date(communityInsights.generatedAt).toLocaleString()} · {communityInsights.reportsAnalyzed} reports analyzed.</p></>
+              : <p className="text-sm text-white/80">No AI interpretation is available yet.</p>}
+          </section>
         </div>
       )}
 
