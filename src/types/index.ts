@@ -30,6 +30,8 @@ export interface Report {
   aiSummary?: string;
   createdAt: string;
   updatedAt?: string;
+  /** Local administrator-only fixture; never stored in Firestore. */
+  isSimulation?: boolean;
 }
 
 export interface ReportUpdate {

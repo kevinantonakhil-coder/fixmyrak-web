@@ -29,6 +29,7 @@ import {
   Check,
 } from 'lucide-react';
 import { calculateCommunityAnalytics, hasSufficientCommunityData } from '../utils/communityAnalytics';
+import { createAiTriageSimulationReports } from '../data/aiTriageSimulation';
 
 const AI_TRIAGE_URGENCY_RANK: Record<AIReportTriageResult['urgency'], number> = {
   critical: 4,
@@ -80,6 +81,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [triageError, setTriageError] = useState('');
   const [triageNotice, setTriageNotice] = useState('');
   const [applyingCategoryId, setApplyingCategoryId] = useState<string | null>(null);
+  const [simulationReports, setSimulationReports] = useState<Report[] | null>(null);
 
   // Feedback list
   const [feedbackList, setFeedbackList] = useState<UserFeedback[]>([]);
@@ -100,7 +102,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   }, [activeTab]);
 
   // Filtered reports for admin table
-  const filteredReports = useMemo(() => reports.filter((r) => {
+  const displayedReports = simulationReports ?? reports;
+  const filteredReports = useMemo(() => displayedReports.filter((r) => {
     if (filterCategory !== 'all' && r.category !== filterCategory) return false;
     if (filterStatus !== 'all' && r.status !== filterStatus) return false;
     if (searchQuery.trim()) {
@@ -113,7 +116,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       );
     }
     return true;
-  }), [reports, filterCategory, filterStatus, searchQuery]);
+  }), [displayedReports, filterCategory, filterStatus, searchQuery]);
   const sortedReports = useMemo(() => filteredReports
     .map((report, index) => ({
       report,
@@ -165,11 +168,36 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     setUpdateMessage('');
   };
 
+  const handleLoadTriageSimulation = () => {
+    setSimulationReports(createAiTriageSimulationReports());
+    setAiTriageResults({});
+    setAiTriageSignatures({});
+    setTriageNotice('Loaded 43 realistic simulation reports in this admin view only. They are not saved to Firestore or shown publicly.');
+    setTriageError('');
+  };
+
+  const handleExitTriageSimulation = () => {
+    setSimulationReports(null);
+    setAiTriageResults({});
+    setAiTriageSignatures({});
+    setTriageNotice('Returned to live reports. Simulation changes were discarded.');
+    setTriageError('');
+  };
+
   const handleSaveStatus = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingReport || !user) return;
     setIsUpdatingStatus(true);
     try {
+      if (editingReport.isSimulation) {
+        const now = new Date().toISOString();
+        setSimulationReports((current) => current?.map((report) => report.id === editingReport.id
+          ? { ...report, status: newStatus, updatedAt: now }
+          : report) ?? null);
+        setEditingReport(null);
+        setTriageNotice('Simulation status updated in this admin view only. No citizen was notified.');
+        return;
+      }
       await reportService.updateReportStatus({
         reportId: editingReport.id,
         targetUserId: editingReport.userId,
@@ -190,11 +218,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
   const handleToggleVerified = async (report: Report) => {
     const nextVal = !report.isVerified;
+    if (report.isSimulation) {
+      setSimulationReports((current) => current?.map((item) => item.id === report.id ? { ...item, isVerified: nextVal } : item) ?? null);
+      return;
+    }
     await reportService.setVerified(report.id, nextVal);
   };
 
   const handleToggleFlagged = async (report: Report) => {
     const nextVal = !report.flagged;
+    if (report.isSimulation) {
+      setSimulationReports((current) => current?.map((item) => item.id === report.id ? { ...item, flagged: nextVal } : item) ?? null);
+      return;
+    }
     await reportService.setFlagged(report.id, nextVal);
   };
 
@@ -276,6 +312,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     setApplyingCategoryId(report.id);
     setTriageError('');
     try {
+      if (report.isSimulation) {
+        setSimulationReports((current) => current?.map((item) => item.id === report.id
+          ? { ...item, category: result.category }
+          : item) ?? null);
+        setAiTriageSignatures((previous) => ({
+          ...previous,
+          [report.id]: getTriageInputSignature({ ...report, category: result.category }),
+        }));
+        setTriageNotice(`Simulation category updated to “${result.category}” in this admin view only.`);
+        return;
+      }
       await reportService.updateReportCategory(report.id, result.category);
       setAiTriageSignatures((previous) => ({
         ...previous,
@@ -367,7 +414,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
               : 'border-transparent text-[#74817b] hover:text-[#143d35]'
           }`}
         >
-          Report Management ({reports.length})
+          Report Management ({simulationReports ? simulationReports.length : reports.length})
         </button>
         <button
           onClick={() => setActiveTab('analytics')}
@@ -394,6 +441,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       {/* TAB 1: Report Management Table */}
       {activeTab === 'reports' && (
         <div className="space-y-6">
+          {simulationReports ? (
+            <section className="flex flex-col gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Simulation mode">
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-wide text-amber-950">Simulation mode · 43 fictional reports</p>
+                <p className="mt-1 text-xs leading-5 text-amber-900">These realistic examples are visible only in this admin session. Changes are temporary, are not saved to Firebase, and do not notify residents.</p>
+              </div>
+              <button type="button" onClick={handleExitTriageSimulation} className="shrink-0 rounded-xl border border-amber-400 bg-white px-4 py-2 text-xs font-bold text-amber-950 hover:bg-amber-100">Return to live reports</button>
+            </section>
+          ) : (
+            <div className="flex justify-end">
+              <button type="button" onClick={handleLoadTriageSimulation} className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Load 43 realistic demo reports</button>
+            </div>
+          )}
           {/* Filter Bar */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col md:flex-row items-center gap-3">
             <div className="relative flex-1 w-full">
@@ -446,7 +506,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             <div>
               <h3 className="text-sm font-bold text-purple-950">AI Sort & Triage</h3>
               <p className="mt-1 text-xs text-purple-800">Analyze unresolved reports matching your filters, sort by urgency, suggest categories, and prepare status-by-status next steps.</p>
-              <p className="mt-1 text-[11px] text-purple-700">AI suggestions do not update report status. You review category changes and status updates before they are saved or sent to residents.</p>
+              <p className="mt-1 text-[11px] text-purple-700">AI suggestions do not update report status. {simulationReports ? 'All simulation edits stay temporary in this admin view.' : 'Review category changes and status updates before they are saved or sent to residents.'}</p>
             </div>
             <button
               type="button"
@@ -498,7 +558,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                                 src={report.imageURL}
                                 alt={report.title}
                                 className="w-12 h-12 rounded-xl object-cover shrink-0 cursor-pointer"
-                                onClick={() => onSelectReport(report)}
+                                onClick={() => { if (!report.isSimulation) onSelectReport(report); }}
                               />
                             ) : (
                               <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
@@ -507,8 +567,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                             )}
                             <div>
                               <p
-                                onClick={() => onSelectReport(report)}
-                                className="font-bold text-slate-900 hover:text-purple-700 cursor-pointer"
+                                onClick={() => { if (!report.isSimulation) onSelectReport(report); }}
+                                className={`font-bold text-slate-900 ${report.isSimulation ? '' : 'hover:text-purple-700 cursor-pointer'}`}
                               >
                                 {report.title}
                               </p>
@@ -850,7 +910,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Status Message (Notifies citizen)
+                  {editingReport.isSimulation ? 'Simulation note (not sent)' : 'Status Message (Notifies citizen)'}
                 </label>
                 <textarea
                   rows={3}
@@ -879,7 +939,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                   ) : (
                     <Check className="w-3.5 h-3.5" />
                   )}
-                  Save & Notify Citizen
+                  {editingReport.isSimulation ? 'Save simulation status' : 'Save & Notify Citizen'}
                 </button>
               </div>
             </form>
