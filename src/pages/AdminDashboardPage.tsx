@@ -7,6 +7,7 @@ import {
   UserFeedback,
   AISummarizeResult,
   AICommunityInsightsResult,
+  AIReportTriageResult,
 } from '../types';
 import { reportService } from '../services/reportService';
 import { aiService } from '../services/aiService';
@@ -28,6 +29,22 @@ import {
   Check,
 } from 'lucide-react';
 import { calculateCommunityAnalytics, hasSufficientCommunityData } from '../utils/communityAnalytics';
+
+const AI_TRIAGE_URGENCY_RANK: Record<AIReportTriageResult['urgency'], number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
+const getTriageInputSignature = (report: Report) => JSON.stringify({
+  id: report.id,
+  title: report.title,
+  description: report.description,
+  location: report.location,
+  category: report.category,
+  status: report.status,
+});
 
 interface AdminDashboardPageProps {
   reports: Report[];
@@ -55,6 +72,14 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   // AI Summarization
   const [aiSummaries, setAiSummaries] = useState<Record<string, AISummarizeResult>>({});
   const [loadingAiId, setLoadingAiId] = useState<string | null>(null);
+  const [aiTriageResults, setAiTriageResults] = useState<Record<string, AIReportTriageResult>>({});
+  const [aiTriageSignatures, setAiTriageSignatures] = useState<Record<string, string>>({});
+  const [loadingTriageId, setLoadingTriageId] = useState<string | null>(null);
+  const [isSortingReports, setIsSortingReports] = useState(false);
+  const [triageProgress, setTriageProgress] = useState<{ done: number; total: number } | null>(null);
+  const [triageError, setTriageError] = useState('');
+  const [triageNotice, setTriageNotice] = useState('');
+  const [applyingCategoryId, setApplyingCategoryId] = useState<string | null>(null);
 
   // Feedback list
   const [feedbackList, setFeedbackList] = useState<UserFeedback[]>([]);
@@ -64,7 +89,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
   const [communityInsightsError, setCommunityInsightsError] = useState('');
 
   useEffect(() => {
-    if (activeTab === 'feedback') {
+    if (activeTab === 'feedback' && user && isAdmin) {
       setLoadingFeedback(true);
       reportService
         .fetchAllFeedback()
@@ -74,34 +99,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     }
   }, [activeTab]);
 
-  if (!user || !isAdmin) {
-    return (
-      <div className="max-w-md mx-auto my-16 px-4 text-center space-y-4">
-        <div className="w-16 h-16 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center mx-auto">
-          <Shield className="w-8 h-8" />
-        </div>
-        <h2 className="text-2xl font-black text-slate-900">Admin Authentication Required</h2>
-        <p className="text-xs text-slate-500">
-          This administration console is restricted to authorized municipal coordinators and platform administrators.
-        </p>
-        {!user ? (
-          <button
-            onClick={openAuthModal}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
-          >
-            Sign In with Admin Account
-          </button>
-        ) : (
-          <p className="text-xs text-red-600 font-semibold bg-red-50 p-3 rounded-xl border border-red-200">
-            Current account ({user.email}) does not hold administrator privileges.
-          </p>
-        )}
-      </div>
-    );
-  }
-
   // Filtered reports for admin table
-  const filteredReports = reports.filter((r) => {
+  const filteredReports = useMemo(() => reports.filter((r) => {
     if (filterCategory !== 'all' && r.category !== filterCategory) return false;
     if (filterStatus !== 'all' && r.status !== filterStatus) return false;
     if (searchQuery.trim()) {
@@ -114,7 +113,17 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
       );
     }
     return true;
-  });
+  }), [reports, filterCategory, filterStatus, searchQuery]);
+  const sortedReports = useMemo(() => filteredReports
+    .map((report, index) => ({
+      report,
+      index,
+      triage: aiTriageSignatures[report.id] === getTriageInputSignature(report) ? aiTriageResults[report.id] : undefined,
+    }))
+    .sort((a, b) => (AI_TRIAGE_URGENCY_RANK[b.triage?.urgency || 'low'] * Number(!!b.triage)) -
+      (AI_TRIAGE_URGENCY_RANK[a.triage?.urgency || 'low'] * Number(!!a.triage)) || a.index - b.index)
+    .map(({ report }) => report), [filteredReports, aiTriageResults, aiTriageSignatures]);
+  const triageCandidates = filteredReports.filter((report) => report.status !== 'Resolved');
 
   // Analytics counts
   const total = reports.length;
@@ -203,6 +212,83 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
     }
   };
 
+  const runSingleAiTriage = async (report: Report, token: string) => {
+    const result = await aiService.triageReport(report, token);
+    setAiTriageResults((previous) => ({ ...previous, [report.id]: result }));
+    setAiTriageSignatures((previous) => ({ ...previous, [report.id]: getTriageInputSignature(report) }));
+  };
+
+  const handleRunAiTriage = async (report: Report) => {
+    if (!user || isSortingReports || loadingTriageId || applyingCategoryId) return;
+    setLoadingTriageId(report.id);
+    setTriageError('');
+    setTriageNotice('');
+    try {
+      await runSingleAiTriage(report, await user.getIdToken());
+      setTriageNotice(`AI triage is ready for “${report.title}”. Review the suggestions before applying them.`);
+    } catch (error) {
+      setTriageError(error instanceof Error ? error.message : 'AI could not triage this report.');
+    } finally {
+      setLoadingTriageId(null);
+    }
+  };
+
+  const handleAiSortReports = async () => {
+    if (!user || isSortingReports || loadingTriageId || applyingCategoryId || triageCandidates.length === 0) return;
+    setIsSortingReports(true);
+    setTriageError('');
+    setTriageNotice('');
+    setTriageProgress({ done: 0, total: triageCandidates.length });
+    try {
+      const token = await user.getIdToken();
+      let nextIndex = 0;
+      let completed = 0;
+      let failed = 0;
+      const candidates = [...triageCandidates];
+      const worker = async () => {
+        while (nextIndex < candidates.length) {
+          const report = candidates[nextIndex++];
+          try {
+            await runSingleAiTriage(report, token);
+          } catch (error) {
+            failed += 1;
+            console.warn(`AI triage failed for report ${report.id}:`, error);
+          } finally {
+            completed += 1;
+            setTriageProgress({ done: completed, total: candidates.length });
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(2, candidates.length) }, worker));
+      if (failed) setTriageError(`AI triage finished with ${failed} report${failed === 1 ? '' : 's'} that could not be analyzed. You can retry those individually.`);
+      setTriageNotice(`AI triage finished for ${candidates.length - failed} report${candidates.length - failed === 1 ? '' : 's'}. Review suggestions before applying them.`);
+    } catch (error) {
+      setTriageError(error instanceof Error ? error.message : 'AI could not sort the reports.');
+    } finally {
+      setIsSortingReports(false);
+      setTriageProgress(null);
+    }
+  };
+
+  const handleApplyAiCategory = async (report: Report) => {
+    const result = aiTriageResults[report.id];
+    if (!result || aiTriageSignatures[report.id] !== getTriageInputSignature(report) || applyingCategoryId) return;
+    setApplyingCategoryId(report.id);
+    setTriageError('');
+    try {
+      await reportService.updateReportCategory(report.id, result.category);
+      setAiTriageSignatures((previous) => ({
+        ...previous,
+        [report.id]: getTriageInputSignature({ ...report, category: result.category }),
+      }));
+      setTriageNotice(`Category updated to “${result.category}”.`);
+    } catch (error) {
+      setTriageError(error instanceof Error ? error.message : 'Could not update the report category.');
+    } finally {
+      setApplyingCategoryId(null);
+    }
+  };
+
   const getStatusStyle = (status: ReportStatus) => {
     switch (status) {
       case 'Submitted':
@@ -215,6 +301,32 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
         return 'bg-emerald-100 text-emerald-800 border-emerald-200';
     }
   };
+
+  if (!user || !isAdmin) {
+    return (
+      <div className="max-w-md mx-auto my-16 px-4 text-center space-y-4">
+        <div className="w-16 h-16 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center mx-auto">
+          <Shield className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-black text-slate-900">Admin Authentication Required</h2>
+        <p className="text-xs text-slate-500">
+          This administration console is restricted to authorized municipal coordinators and platform administrators.
+        </p>
+        {!user ? (
+          <button
+            onClick={openAuthModal}
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
+          >
+            Sign In with Admin Account
+          </button>
+        ) : (
+          <p className="text-xs text-red-600 font-semibold bg-red-50 p-3 rounded-xl border border-red-200">
+            Current account ({user.email}) does not hold administrator privileges.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 bg-[#f6f7f3]">
@@ -302,6 +414,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                 className="w-full p-2 text-xs border border-slate-200 rounded-xl bg-slate-50 font-medium"
               >
                 <option value="all">All Categories</option>
+                <option value="Water Saving">Water Saving</option>
+                <option value="Electricity Saving">Electricity Saving</option>
+                <option value="Recycling">Recycling</option>
+                <option value="Greener Living">Greener Living</option>
                 <option value="Roads and Potholes">Roads and Potholes</option>
                 <option value="Streetlights">Streetlights</option>
                 <option value="Waste Management">Waste Management</option>
@@ -326,6 +442,25 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
             </div>
           </div>
 
+          <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-purple-200 bg-purple-50 p-4" aria-label="AI report triage">
+            <div>
+              <h3 className="text-sm font-bold text-purple-950">AI Sort & Triage</h3>
+              <p className="mt-1 text-xs text-purple-800">Analyze unresolved reports matching your filters, sort by urgency, suggest categories, and prepare status-by-status next steps.</p>
+              <p className="mt-1 text-[11px] text-purple-700">AI suggestions do not update report status. You review category changes and status updates before they are saved or sent to residents.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleAiSortReports()}
+              disabled={isSortingReports || !!loadingTriageId || !!applyingCategoryId || triageCandidates.length === 0}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-purple-700 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSortingReports ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {triageProgress ? `Analyzing ${triageProgress.done} / ${triageProgress.total}` : `Run AI sort (${triageCandidates.length})`}
+            </button>
+          </section>
+          {triageNotice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-800">{triageNotice}</p>}
+          {triageError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{triageError}</p>}
+
           {/* Table */}
           <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
@@ -348,8 +483,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    filteredReports.map((report) => (
-                      <tr key={report.id} className="hover:bg-slate-50/70 transition-colors">
+                    sortedReports.map((report) => {
+                      const triage = aiTriageSignatures[report.id] === getTriageInputSignature(report)
+                        ? aiTriageResults[report.id]
+                        : undefined;
+                      return (
+                      <React.Fragment key={report.id}>
+                      <tr className="hover:bg-slate-50/70 transition-colors">
                         {/* Title & Photo */}
                         <td className="py-4 px-4">
                           <div className="flex items-start gap-3">
@@ -409,6 +549,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                           <div className="flex items-center gap-1.5">
                             <button
                               type="button"
+                              onClick={() => void handleRunAiTriage(report)}
+                              disabled={isSortingReports || !!loadingTriageId || !!applyingCategoryId}
+                              className="px-2 py-1 text-[10px] font-bold bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md border border-purple-200 transition-colors flex items-center gap-1 disabled:opacity-50"
+                              title="Prepare an AI category and status plan"
+                            >
+                              {loadingTriageId === report.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                              AI Plan
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleRunAiSummary(report)}
                               disabled={loadingAiId === report.id}
                               className="px-2 py-1 text-[10px] font-bold bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-md border border-purple-200 transition-colors flex items-center gap-1"
@@ -419,7 +569,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                               ) : (
                                 <Sparkles className="w-3 h-3 text-purple-600" />
                               )}
-                              AI Triage
+                              AI Summary
                             </button>
 
                             <button
@@ -468,7 +618,48 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({
                           </button>
                         </td>
                       </tr>
-                    ))
+                      {triage && (
+                        <tr className="bg-purple-50/60">
+                          <td colSpan={6} className="px-4 pb-4">
+                            <section className="rounded-2xl border border-purple-200 bg-white p-4" aria-label={`AI triage suggestion for ${report.title}`}>
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h4 className="text-xs font-extrabold text-purple-950">AI triage recommendation</h4>
+                                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${triage.urgency === 'critical' ? 'bg-rose-100 text-rose-800' : triage.urgency === 'high' ? 'bg-orange-100 text-orange-800' : triage.urgency === 'medium' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                      {triage.urgency} urgency
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-xs leading-5 text-slate-700">{triage.reasoning}</p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <span className="text-[11px] text-slate-500">Suggested: <strong className="text-slate-800">{triage.category}</strong></span>
+                                  <button type="button" onClick={() => void handleApplyAiCategory(report)} disabled={applyingCategoryId === report.id || report.category === triage.category} className="rounded-lg border border-purple-300 px-3 py-1.5 text-[10px] font-bold text-purple-800 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                    {applyingCategoryId === report.id ? 'Saving…' : report.category === triage.category ? 'Category saved' : 'Apply category'}
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="mt-4 border-t border-slate-100 pt-3">
+                                <h5 className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Suggested path from {report.status}</h5>
+                                {triage.steps.length ? (
+                                  <ol className="mt-2 grid gap-2 sm:grid-cols-3">
+                                    {triage.steps.map((step, index) => (
+                                      <li key={`${step.status}-${index}`} className="rounded-xl bg-slate-50 p-3">
+                                        <p className="text-[10px] font-extrabold text-[#143d35]">{index + 1}. {step.status}</p>
+                                        <p className="mt-1 text-[11px] leading-4 text-slate-700">{step.status === 'Resolved' ? 'Coordinator verifies completion evidence before setting this status.' : step.action}</p>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                ) : <p className="mt-2 text-[11px] text-slate-600">This report is already marked Resolved. AI will not change its status.</p>}
+                                <p className="mt-3 text-[11px] text-slate-600"><strong>Resolution check:</strong> {triage.resolutionEvidence} Final status changes remain an administrator decision and use the existing “Update Status” action.</p>
+                              </div>
+                            </section>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

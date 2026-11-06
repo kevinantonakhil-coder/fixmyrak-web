@@ -7,6 +7,7 @@ import {
   Report,
   CommunityAnalytics,
   AICommunityInsightsResult,
+  AIReportTriageResult,
 } from '../types';
 
 const aiApiBaseUrl = (import.meta.env.VITE_AI_API_BASE_URL || '').replace(/\/+$/, '');
@@ -114,6 +115,28 @@ export const aiService = {
       throw new Error(err.error || 'Failed to summarize report');
     }
 
+    return res.json();
+  },
+
+  async triageReport(report: Report, idToken: string): Promise<AIReportTriageResult> {
+    const res = await fetch(aiApiUrl('/api/ai/triage'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({
+        report: {
+          id: report.id,
+          title: report.title,
+          description: report.description,
+          category: report.category,
+          location: report.location,
+          status: report.status,
+        },
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to triage report');
+    }
     return res.json();
   },
 

@@ -49,7 +49,7 @@ service cloud.firestore {
         data.userId is string && data.userId.size() <= 128 &&
         data.title is string && data.title.size() >= 3 && data.title.size() <= 150 &&
         data.description is string && data.description.size() >= 5 && data.description.size() <= 5000 &&
-        data.category in ['Roads and Potholes', 'Streetlights', 'Waste Management', 'Pavements', 'Public Facilities', 'Other Infrastructure'] &&
+        data.category in ['Water Saving', 'Electricity Saving', 'Recycling', 'Greener Living', 'Roads and Potholes', 'Streetlights', 'Pavements', 'Public Facilities', 'Other Infrastructure', 'Waste Management'] &&
         data.location is string && data.location.size() >= 3 && data.location.size() <= 200 &&
         data.latitude is number && data.longitude is number &&
         data.status in ['Submitted', 'Under Review', 'In Progress', 'Resolved'] &&

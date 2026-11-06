@@ -203,6 +203,18 @@ export const reportService = {
     }
   },
 
+  async updateReportCategory(reportId: string, category: ReportCategory): Promise<void> {
+    const path = `reports/${reportId}`;
+    try {
+      await updateDoc(doc(db, 'reports', reportId), {
+        category,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
   async setFlagged(reportId: string, flagged: boolean): Promise<void> {
     const path = `reports/${reportId}`;
     try {
