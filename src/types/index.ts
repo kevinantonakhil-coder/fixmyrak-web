@@ -129,14 +129,6 @@ export interface AISummarizeResult {
   suggestedAction: string;
 }
 
-export interface AIReportTriageResult {
-  category: ReportCategory;
-  urgency: 'low' | 'medium' | 'high' | 'critical';
-  reasoning: string;
-  steps: { status: ReportStatus; action: string }[];
-  resolutionEvidence: string;
-}
-
 export interface GroundedPlace {
   title: string;
   uri: string;
