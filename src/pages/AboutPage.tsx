@@ -152,6 +152,59 @@ export const AboutPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Visual Showcase: Rooted in Ras Al Khaimah */}
+          <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="p-6 sm:p-8 pb-4">
+              <span className="text-[10px] font-bold text-[#819087] uppercase tracking-widest block mb-1">
+                Heritage & Nature • The Emirate of Ras Al Khaimah
+              </span>
+              <h3 className="text-lg sm:text-xl font-extrabold text-[#143d35] font-manrope">
+                Rooted in Community Pride & Natural Beauty
+              </h3>
+              <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
+                From the ancient battlements of Dhayah Fort surrounded by date palm oasis groves to the lush marine mangroves along Corniche Al Qawasim, FixMyRAK is designed to celebrate and protect every neighborhood in our emirate.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6 sm:p-8 pt-2">
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] group shadow-xs">
+                <img
+                  src={`${import.meta.env.BASE_URL}assets/rak/dhayah-fort.jpg`}
+                  alt="Historic Dhayah Fort in Ras Al Khaimah surrounded by green date palm plantations"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute bottom-3 left-3 right-3 text-white">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200 block">
+                    Northern RAK • Al Rams
+                  </span>
+                  <strong className="text-xs sm:text-sm font-bold block">
+                    Historic Dhayah Fort & Oasis
+                  </strong>
+                </div>
+              </div>
+
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] group shadow-xs">
+                <img
+                  src={`${import.meta.env.BASE_URL}assets/rak/corniche-mangroves.jpg`}
+                  alt="Corniche Al Qawasim pedestrian waterfront and lush green mangrove trees in Ras Al Khaimah"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute bottom-3 left-3 right-3 text-white">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 block">
+                    City Center • Mangrove Reserve
+                  </span>
+                  <strong className="text-xs sm:text-sm font-bold block">
+                    Corniche Al Qawasim Eco-Trails
+                  </strong>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

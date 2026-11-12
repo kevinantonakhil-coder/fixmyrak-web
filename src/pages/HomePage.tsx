@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Report, ReportCategory, ReportStatus } from '../types';
 import { MapComponent } from '../components/MapComponent';
 import { useLanguage } from '../context/LanguageContext';
@@ -40,6 +40,59 @@ export const HomePage: React.FC<HomePageProps> = ({
   openAuthModal,
 }) => {
   const { t } = useLanguage();
+  const [activeLandmarkIndex, setActiveLandmarkIndex] = useState(0);
+
+  const landmarks = [
+    {
+      id: 'jebel-jais',
+      name: 'Jebel Jais Highway',
+      tagline: 'UAE’s Highest Peak • 1,934m',
+      district: 'Hajar Mountains',
+      image: `${import.meta.env.BASE_URL}assets/rak/jebel-jais.jpg`,
+      alt: 'Scenic winding highway through the rugged mountains of Jebel Jais in Ras Al Khaimah',
+      description: 'Mountain road safety, guardrails, rockfall netting, and high-altitude rest area maintenance.',
+      badgeColor: 'bg-amber-100 text-amber-900 border-amber-200',
+    },
+    {
+      id: 'corniche',
+      name: 'Corniche Al Qawasim',
+      tagline: 'Mangrove Eco-Reserve & Promenade',
+      district: 'Creek & City Center',
+      image: `${import.meta.env.BASE_URL}assets/rak/corniche-mangroves.jpg`,
+      alt: 'Lush green mangroves and pedestrian boardwalk along Corniche Al Qawasim in Ras Al Khaimah',
+      description: 'Pedestrian walkway lighting, mangrove water cleanliness, and shaded family seating.',
+      badgeColor: 'bg-emerald-100 text-emerald-900 border-emerald-200',
+    },
+    {
+      id: 'marjan',
+      name: 'Al Marjan Island & Coastline',
+      tagline: 'Turquoise Arabian Gulf Shores',
+      district: 'Southern Coast',
+      image: `${import.meta.env.BASE_URL}assets/rak/marjan-coastline.jpg`,
+      alt: 'Pristine beach and modern promenade on Al Marjan Island in Ras Al Khaimah',
+      description: 'Beach cleanliness, curb maintenance, pedestrian crossing safety, and coastal amenities.',
+      badgeColor: 'bg-sky-100 text-sky-900 border-sky-200',
+    },
+    {
+      id: 'dhayah',
+      name: 'Historic Dhayah Fort',
+      tagline: 'Hilltop Fortress & Date Palm Oasis',
+      district: 'Northern RAK (Al Rams)',
+      image: `${import.meta.env.BASE_URL}assets/rak/dhayah-fort.jpg`,
+      alt: '19th century hilltop Dhayah Fort surrounded by date palms and mountains in Ras Al Khaimah',
+      description: 'Heritage pathway access, signage, oasis irrigation protection, and community care.',
+      badgeColor: 'bg-orange-100 text-orange-900 border-orange-200',
+    },
+  ];
+
+  // Auto-cycle hero landmark every 6 seconds if user has not manually interacted
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveLandmarkIndex((prev) => (prev + 1) % landmarks.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [landmarks.length]);
+
   // Live statistics from Firestore
   const totalCount = reports.length;
   const underReviewCount = reports.filter((r) => r.status === 'Under Review').length;
@@ -190,36 +243,61 @@ export const HomePage: React.FC<HomePageProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Hero Visual with RAK sunset photo & Sticker */}
+          {/* Right Column: Hero Visual with Dynamic High-Quality RAK Landmarks & Sticker */}
           <div className="lg:col-span-6 relative">
-            <div className="relative rounded-[24px] overflow-hidden shadow-xl border border-[#e4e9e1] aspect-[4/3] bg-[#e8f1e9]">
+            <div className="relative rounded-[24px] overflow-hidden shadow-xl border border-[#e4e9e1] aspect-[4/3] bg-[#143d35] group">
+              {/* Landmark Image */}
               <img
-                src={`${import.meta.env.BASE_URL}assets/rak-beach-sunset.jpg`}
-                alt="A fishing boat on the Arabian Gulf at sunset in Ras Al Khaimah"
-                className="w-full h-full object-cover"
+                key={landmarks[activeLandmarkIndex].id}
+                src={landmarks[activeLandmarkIndex].image}
+                alt={landmarks[activeLandmarkIndex].alt}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105"
               />
 
-              {/* Bottom Gradient Shade */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#142a25]/75 via-transparent to-transparent pointer-events-none" />
+              {/* Top District Tag & Quick Switcher Pill */}
+              <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-white/90 backdrop-blur-md text-[#143d35] shadow-xs border border-white/60">
+                  {landmarks[activeLandmarkIndex].district}
+                </span>
+              </div>
 
-              {/* Image Caption matching reference website */}
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white z-10">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs border border-white/40 flex items-center justify-center text-sm">
-                    ⌖
+              {/* Bottom Gradient Shade */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#142a25]/90 via-[#142a25]/30 to-transparent pointer-events-none" />
+
+              {/* Bottom Info & Navigation Controls */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white z-10">
+                <div className="space-y-1 max-w-[70%]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#d7edbd] animate-pulse" />
+                    <span className="text-[10px] font-bold text-[#d7edbd] uppercase tracking-wider">
+                      {landmarks[activeLandmarkIndex].tagline}
+                    </span>
                   </div>
-                  <div>
-                    <strong className="block text-xs font-bold font-manrope">
-                      Ras Al Khaimah at sunset
-                    </strong>
-                    <small className="text-[10px] text-white/80 block">
-                      United Arab Emirates
-                    </small>
-                  </div>
+                  <strong className="block text-base sm:text-lg font-extrabold font-manrope leading-tight drop-shadow-sm">
+                    {landmarks[activeLandmarkIndex].name}
+                  </strong>
+                  <p className="text-[11px] text-white/80 line-clamp-1">
+                    {landmarks[activeLandmarkIndex].description}
+                  </p>
                 </div>
 
-                <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center text-xs">
-                  ↗
+                {/* Thumbnail Dots Switcher */}
+                <div className="flex items-center gap-1.5 bg-black/35 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/20">
+                  {landmarks.map((landmark, idx) => (
+                    <button
+                      key={landmark.id}
+                      type="button"
+                      onClick={() => setActiveLandmarkIndex(idx)}
+                      className={`h-2 rounded-full transition-all cursor-pointer ${
+                        idx === activeLandmarkIndex
+                          ? 'w-6 bg-[#d7edbd]'
+                          : 'w-2 bg-white/40 hover:bg-white/80'
+                      }`}
+                      aria-label={`Show ${landmark.name}`}
+                      title={landmark.name}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -425,6 +503,91 @@ export const HomePage: React.FC<HomePageProps> = ({
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* High Quality RAK Landscapes & Communities Showcase */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#143d35]" />
+              <span className="text-[10px] font-bold text-[#819087] uppercase tracking-widest">
+                From Peaks to Coastline • Ras Al Khaimah
+              </span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#143d35] font-manrope tracking-tight">
+              Caring for our emirate's distinct environments
+            </h2>
+            <p className="text-[#74817b] text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
+              Every neighborhood across Ras Al Khaimah has unique infrastructure and ecological needs. See where community reports are actively protecting shared spaces.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setCurrentTab('map')}
+            className="text-xs font-bold text-[#143d35] hover:text-[#e97950] flex items-center gap-1 group self-start sm:self-auto cursor-pointer"
+          >
+            <span>Explore all districts on map</span>
+            <span className="group-hover:translate-x-1 transition-transform">&rarr;</span>
+          </button>
+        </div>
+
+        {/* 4 Cards Grid with High Quality RAK Photography */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {landmarks.map((landmark, idx) => (
+            <div
+              key={landmark.id}
+              onClick={() => {
+                setActiveLandmarkIndex(idx);
+                setCurrentTab('map');
+              }}
+              className="group bg-white rounded-2xl border border-[#e4e9e1] overflow-hidden hover:shadow-xl hover:border-[#143d35]/40 transition-all duration-300 flex flex-col justify-between cursor-pointer"
+            >
+              <div>
+                {/* Photo container */}
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#143d35]">
+                  <img
+                    src={landmark.image}
+                    alt={landmark.alt}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+                  {/* District badge */}
+                  <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-white/95 backdrop-blur-md text-[#143d35] shadow-xs">
+                    {landmark.district}
+                  </span>
+
+                  {/* Tagline */}
+                  <span className="absolute bottom-3 left-3 right-3 text-[10px] font-bold text-white/90 drop-shadow-sm truncate">
+                    {landmark.tagline}
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 space-y-2">
+                  <h3 className="font-extrabold text-sm sm:text-base text-[#143d35] font-manrope group-hover:text-[#e97950] transition-colors">
+                    {landmark.name}
+                  </h3>
+                  <p className="text-xs text-[#74817b] leading-relaxed line-clamp-2">
+                    {landmark.description}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action footer */}
+              <div className="p-4 pt-2 border-t border-[#f6f7f3] flex items-center justify-between text-xs font-bold text-[#143d35]">
+                <span className="text-[11px] text-[#74817b] group-hover:text-[#143d35] transition-colors">
+                  View local map pins
+                </span>
+                <span className="text-[#e97950] group-hover:translate-x-1 transition-transform">
+                  &rarr;
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
